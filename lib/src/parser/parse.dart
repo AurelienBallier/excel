@@ -66,6 +66,20 @@ class Parser {
     }
   }
 
+  static const Map<String, String> xmlEscaping = {
+    "<": "&lt;",
+    ">": "&gt;"
+  };
+
+  static String xmlRemoveEscaping(String xmlStr) {
+    String finalStr = xmlStr;
+    xmlEscaping.forEach((key, value) {
+      finalStr = finalStr.replaceAll(value, key);
+    });
+
+    return finalStr;
+  }
+
   void _parseSharedStrings() {
     var sharedStrings =
         _excel._archive.findFile(_excel._absSharedStringsTarget);
@@ -617,7 +631,8 @@ class Parser {
       case 'e':
       // formula
       case 'str':
-        value = FormulaCellValue(_parseValue(node.findElements('v').first));
+        value = FormulaCellValue(node);
+
         break;
       // inline string
       case 'inlineStr':
@@ -631,7 +646,7 @@ class Parser {
       default:
         var formulaNode = node.findElements('f');
         if (formulaNode.isNotEmpty) {
-          value = FormulaCellValue(_parseValue(formulaNode.first).toString());
+          value = FormulaCellValue(node);
         } else {
           final vNode = node.findElements('v').firstOrNull;
           if (vNode == null) {

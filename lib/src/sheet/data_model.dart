@@ -71,8 +71,8 @@ class Data extends Equatable {
   ///var cell = sheet.cell(CellIndex.indexByString("E5"));
   ///cell.setFormula('=SUM(1,2)');
   ///```
-  void setFormula(String formula) {
-    _sheet.updateCell(cellIndex, FormulaCellValue(formula));
+  void setFormula(FormulaCellValue formulaCell) {
+    _sheet.updateCell(cellIndex, formulaCell);
   }
 
   set value(CellValue? val) {
@@ -112,12 +112,53 @@ sealed class CellValue {
 }
 
 class FormulaCellValue extends CellValue {
-  final String formula;
+  late String formula;
+  String? type;
+  String? ref;
+  String? si;
+  String value = "";
+  static Map<String, FormulaCellValue> SharedFormulas = {};
 
-  const FormulaCellValue(this.formula);
+  FormulaCellValue(XmlElement node) {
+    formula = "";
+
+    var vElements = node.findElements('v');
+
+    if(vElements.isNotEmpty && vElements.first.children.isNotEmpty) {
+      value = vElements.first.children.first.toString();
+    }
+    
+    var fElements = node.findElements('f');
+
+    if(!fElements.isNotEmpty) {
+      return;
+    }
+
+    XmlElement currentFNode = fElements.first;
+    
+    if(currentFNode.children.isNotEmpty) {
+      formula = Parser.xmlRemoveEscaping(currentFNode.children.first.toString());
+    }
+
+    this.type = currentFNode.getAttribute('t');
+
+    //Excel can create shared formulas, 'si' is used as a reference and defined on the first occurence.
+    if(this.type == "shared") {
+      this.ref = currentFNode.getAttribute('ref');
+      this.si = currentFNode.getAttribute('si');
+
+      if((this.si != "") && !SharedFormulas.keys.contains(this.si)) {
+        SharedFormulas[this.si!] = this;
+      }
+    }
+  }
 
   @override
   String toString() {
+    if((formula == "") && SharedFormulas.keys.contains(si)) {
+      return SharedFormulas[si]!.formula;
+    }
+
     return formula;
   }
 
